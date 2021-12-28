@@ -11,11 +11,11 @@ Copyright (c) 2021 AmBev Latas Minas / THINK
 
 
 import pandas as pd
-import streamlit as st
 from google.cloud import firestore
 from datetime import datetime
 import json
-
+import streamlit as st
+st.set_page_config(layout="wide")
 
 ### DB CONN
 #db = firestore.Client.from_service_account_json("firestore_key.json")
@@ -109,15 +109,15 @@ def _inserir_dados() -> None:
 
         with col1:
             st.subheader("Linha 571")
-            washer1 = st.text_input("Lavadora - 571", placeholder="Lavadora da Linha 571")
-            sos1 = st.text_input("SOS - 571", placeholder="SOS da Linha 571")
-            uvbc1 = st.text_input("UVBC - 571", placeholder="UVBC da Linha 571")
+            washer1 = st.text_input("Lavadora", placeholder="Lavadora da Linha 571")
+            sos1 = st.text_input("SOS", placeholder="SOS da Linha 571")
+            uvbc1 = st.text_input("UVBC", placeholder="UVBC da Linha 571")
 
         with col2:
             st.subheader("Linha 572")
-            washer2 = st.text_input("Lavadora - 572", placeholder="Lavadora da Linha 572")
-            sos2 = st.text_input("SOS - 572", placeholder="SOS da Linha 572")
-            uvbc2 = st.text_input("UVBC - 572", placeholder="UVBC da Linha 572")
+            washer2 = st.text_input("Lavadora", placeholder="Lavadora da Linha 572")
+            sos2 = st.text_input("SOS", placeholder="SOS da Linha 572")
+            uvbc2 = st.text_input("UVBC", placeholder="UVBC da Linha 572")
                 
         submit_button = st.form_submit_button(label="Enviar")            
 
@@ -137,19 +137,16 @@ def _inserir_dados() -> None:
 
 def display_current_time() -> None:
     now = datetime.now()
-    current_time = now.strftime("%H:%M:%S")
+    #current_time = now.strftime("%H:%M:%S")
     current_date = now.strftime("%d/%m/%Y")
     current_shift = get_shift(now, mode='current')
 
-    st.write(now.timestamp(), current_date, current_time, current_shift)
+    st.write(f"Dia: {current_date} \nTurno: {current_shift}")
 
 
 
 def main() -> None:
     #db_check()
-
-    #display current time
-    display_current_time()
 
     st.title("Troca de Turno - Laboratório")
     menu = ['Inserir', 'Buscar']
