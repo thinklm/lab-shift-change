@@ -105,7 +105,7 @@ def _inserir_dados() -> None:
 
     # FORMS
     with st.form(key='form1', clear_on_submit=True):
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns([3,3])
 
         with col1:
             st.subheader("Linha 571")
