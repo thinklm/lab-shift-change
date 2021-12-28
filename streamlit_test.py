@@ -9,13 +9,78 @@ Copyright (c) 2021 AmBev Latas Minas / THINK
 
 ### IMPORTS
 
+
 import pandas as pd
 import streamlit as st
-import pandas as pd
+from google.cloud import firestore
+from datetime import datetime
+import json
+
+
+### DB CONN
+#db = firestore.Client.from_service_account_json("firestore_key.json")
+key_dict = json.loads(st.secrets["textkey"])
+db = firestore.Client.from_service_account_info(key_dict)
 
 
 
 ### FUNCTIONS
+
+def db_check() -> None:
+    # Authenticate to Firestore with the JSON account key.
+    db = firestore.Client.from_service_account_json("firestore_key.json")
+
+    # Create a reference to the Google post.
+    doc_ref = db.collection("fechamentos").document("28122021A")
+
+    # Then get the data at that reference.
+    doc = doc_ref.get()
+
+    # Let's see what we got!
+    st.write("The id is: ", doc.id)
+    st.write("The contents are: ", doc.to_dict())
+
+
+
+def get_shift(now: datetime, mode: str="current") -> str:
+    if (int(now.strftime("%H")) == 23) | (int(now.strftime("%H")) < 7):
+        current_shift = "A"
+    elif (int(now.strftime("%H")) >= 7) | (int(now.strftime("%H")) < 15):
+        current_shift = "B"
+    elif (int(now.strftime("%H")) >= 15) | (int(now.strftime("%H")) < 23):
+        current_shift = "C"
+    else: 
+        current_shift = None
+
+
+    if mode == "current":
+        return current_shift
+
+    elif mode == "previous":
+        if current_shift == "A":
+            return "C"
+        elif current_shift == "B":
+            return "A"
+        elif current_shift == "C":
+            return "B"
+        else: 
+            return None
+
+    
+
+
+
+def upload_shift_data(submit_args: dict) -> None:
+    now = datetime.now()
+    previous_shift = get_shift(now, mode='previous')
+    new_id  = now.strftime("%d%m%Y") + previous_shift
+
+    doc_ref = db.collection("fechamentos").document(new_id)
+    doc_ref.set(submit_args)
+
+
+
+
 
 def _submit_callback(submit_args: dict) -> None:
     try:
@@ -24,6 +89,7 @@ def _submit_callback(submit_args: dict) -> None:
         st.error(f'Erro ao salvar dados:\n\n{e}')
 
     # Mensagem de sucesso
+    upload_shift_data(submit_args)
     st.success("Dados enviados com sucesso!")
 
     # Mostra os dados efetuados
@@ -69,14 +135,31 @@ def _inserir_dados() -> None:
 
 
 
+def display_current_time() -> None:
+    now = datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    current_date = now.strftime("%d/%m/%Y")
+    current_shift = get_shift(now, mode='current')
+
+    st.write(now.timestamp(), current_date, current_time, current_shift)
+
+
 
 def main() -> None:
+    #db_check()
+
+    #display current time
+    display_current_time()
+
     st.title("Troca de Turno - Laboratório")
     menu = ['Inserir', 'Buscar']
     choice = st.sidebar.selectbox("Menu", menu)
 
     if choice == "Inserir":
         _inserir_dados()
+
+    else:
+        st.subheader("Funcionalidade em desenvolvimento!")
        
 
 
