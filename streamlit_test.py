@@ -109,15 +109,15 @@ def _inserir_dados() -> None:
 
         with col1:
             st.subheader("Linha 571")
-            washer1 = st.text_input("Lavadora - 571", placeholder="Digite os dados de troca de turno referentes à Lavadora da Linha 571")
-            sos1 = st.text_input("SOS - 571", placeholder="Digite os dados de troca de turno referentes ao SOS da Linha 571")
-            uvbc1 = st.text_input("UVBC - 571", placeholder="Digite os dados de troca de turno referentes à UVBC da Linha 571")
+            washer1 = st.text_input("Lavadora - 571", placeholder="Lavadora da Linha 571")
+            sos1 = st.text_input("SOS - 571", placeholder="SOS da Linha 571")
+            uvbc1 = st.text_input("UVBC - 571", placeholder="UVBC da Linha 571")
 
         with col2:
             st.subheader("Linha 572")
-            washer2 = st.text_input("Lavadora - 572", placeholder="Digite os dados de troca de turno referentes à Lavadora da Linha 572")
-            sos2 = st.text_input("SOS - 572", placeholder="Digite os dados de troca de turno referentes ao SOS da Linha 572")
-            uvbc2 = st.text_input("UVBC - 572", placeholder="Digite os dados de troca de turno referentes à UVBC da Linha 572")
+            washer2 = st.text_input("Lavadora - 572", placeholder="Lavadora da Linha 572")
+            sos2 = st.text_input("SOS - 572", placeholder="SOS da Linha 572")
+            uvbc2 = st.text_input("UVBC - 572", placeholder="UVBC da Linha 572")
                 
         submit_button = st.form_submit_button(label="Enviar")            
 
