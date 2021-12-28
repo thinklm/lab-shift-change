@@ -1,2 +1,2 @@
 google-cloud-firestore==2.3.4
-streamlit @ file:///home/conda/feedstock_root/build_artifacts/streamlit_1639706358386/work
+streamlit
