@@ -15,7 +15,6 @@ from google.cloud import firestore
 from datetime import datetime
 import json
 import streamlit as st
-from streamlit.type_util import Key
 st.set_page_config(layout="wide")
 
 ### DB CONN
@@ -42,29 +41,29 @@ db = firestore.Client.from_service_account_info(key_dict)
 
 
 
-def get_shift(now: datetime, mode: str="current") -> str:
-    if (int(now.strftime("%H")) == 23) | (int(now.strftime("%H")) < 7):
-        current_shift = "A"
-    elif (int(now.strftime("%H")) >= 7) | (int(now.strftime("%H")) < 15):
-        current_shift = "B"
-    elif (int(now.strftime("%H")) >= 15) | (int(now.strftime("%H")) < 23):
-        current_shift = "C"
-    else: 
-        current_shift = None
+# def get_shift(now: datetime, mode: str="current") -> str:
+#     if (int(now.strftime("%H")) == 23) | (int(now.strftime("%H")) < 7):
+#         current_shift = "A"
+#     elif (int(now.strftime("%H")) >= 7) | (int(now.strftime("%H")) < 15):
+#         current_shift = "B"
+#     elif (int(now.strftime("%H")) >= 15) | (int(now.strftime("%H")) < 23):
+#         current_shift = "C"
+#     else: 
+#         current_shift = None
 
 
-    if mode == "current":
-        return current_shift
+#     if mode == "current":
+#         return current_shift
 
-    elif mode == "previous":
-        if current_shift == "A":
-            return "C"
-        elif current_shift == "B":
-            return "A"
-        elif current_shift == "C":
-            return "B"
-        else: 
-            return None
+#     elif mode == "previous":
+#         if current_shift == "A":
+#             return "C"
+#         elif current_shift == "B":
+#             return "A"
+#         elif current_shift == "C":
+#             return "B"
+#         else: 
+#             return None
 
     
 
@@ -75,7 +74,7 @@ def upload_shift_data(submit_args: dict) -> None:
     new_id  = now.strftime("%d%m%Y") + st.session_state.sft
     submit_args["date"] = now
 
-    doc_ref = db.collection("fechamentos").document(new_id)
+    doc_ref = db.collection(u"fechamentos").document(new_id)
     doc_ref.set(submit_args)
 
 
@@ -122,15 +121,16 @@ def _submit_callback() -> None:
 
 
 
+
 def _inserir_dados() -> None:
 
+    # Header
     st.header("Inserir Dados")
     col_shift, col_empty  = st.columns([1,5])
     with col_shift:
         st.selectbox(label="Turno: ", options=["Selecione", "A", "B", "C"], key="sft")
     with col_empty:
-        st.empty()
-    
+        st.empty()    
     
     
     # FORMS
@@ -169,19 +169,86 @@ def _inserir_dados() -> None:
 
 
 
-def main() -> None:
-    #db_check()
 
+def _home() -> None:
+    st.write("## :hammer: Funcionalidade em desenvolvimento! ")
+    
+    # Buscar último dado inserido
+    fechamentos_ref = db.collection(u"fechamentos")
+    doc_ref = fechamentos_ref.order_by(
+        u"date", direction=firestore.Query.DESCENDING).limit(1)
+    query = doc_ref.get()[0].to_dict()
+
+
+    # Mostra o resultado teste
+    st.subheader("Última Modificação:")
+
+    # dia, hora e turno da última modificação
+    col_data, col_hora, col_turno = st.columns(3)
+    with col_data:
+        st.write(f"Dia: {query['date'].strftime('%d/%m/%Y')}")
+    with col_hora:
+        st.write(f"Hora: {query['date'].strftime('%H:%M:%S')}")
+    with col_turno:
+        st.write(f"Turno: {query['endedshift']}")
+
+    # Detalhes da úlitma modificação
+    col3, col4 = st.columns(2)
+
+    with col3:
+        st.write("### Linha 571")
+
+        st.write("#### Lavadora")
+        st.write(f"Fechamento\n\n > {query['washer1']}\n\n")
+        st.write(f"Pendências\n\n > {query['washer1pend']}\n\n")
+
+        st.write("#### SOS")
+        st.write(f"Fechamento\n\n > {query['sos1']}\n\n")
+        st.write(f"Pendências\n\n > {query['sos1pend']}\n\n")
+
+        st.write("#### UVBC:")
+        st.write(f"Fechamento\n\n > {query['uvbc1']}\n\n")
+        st.write(f"Pendências\n\n > {query['uvbc1pend']}\n\n")
+
+    with col4:
+        st.write("### Linha 572")
+
+        st.write("#### Lavadora")
+        st.write(f"Fechamento\n\n > {query['washer2']}\n\n")
+        st.write(f"Pendências\n\n > {query['washer2pend']}\n\n")
+
+        st.write("#### SOS")
+        st.write(f"Fechamento\n\n > {query['sos2']}\n\n")
+        st.write(f"Pendências\n\n > {query['sos2pend']}\n\n")
+
+        st.write("#### UVBC:")
+        st.write(f"Fechamento\n\n > {query['uvbc2']}\n\n")
+        st.write(f"Pendências\n\n > {query['uvbc2pend']}\n\n")
+
+
+
+
+
+def _buscar_dados() -> None:
+    st.subheader("Funcionalidade em desenvolvimento!")
+    pass
+
+
+
+
+def main() -> None:
     st.title("Troca de Turno - Laboratório")
 
     # Side manu
     menu = ['Home', 'Inserir', 'Buscar']
     choice = st.sidebar.selectbox("Menu", menu)
 
-    if choice == "Inserir":
+    if choice == "Home":
+        _home()
+    elif choice == "Inserir":
         _inserir_dados()
-    else:
-        st.subheader("Funcionalidade em desenvolvimento!")
+    elif choice == "Buscar":
+        _buscar_dados()
        
 
 
