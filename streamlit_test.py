@@ -109,28 +109,33 @@ def _inserir_dados() -> None:
 
         with col1:
             st.subheader("Linha 571")
-            washer1 = st.text_input("Lavadora", placeholder="Lavadora da Linha 571")
-            sos1 = st.text_input("SOS", placeholder="SOS da Linha 571")
-            uvbc1 = st.text_input("UVBC", placeholder="UVBC da Linha 571")
+            washer1 = st.text_area("Lavadora", placeholder="Lavadora da Linha 571")
+            sos1 = st.text_area("SOS", placeholder="SOS da Linha 571")
+            uvbc1 = st.text_area("UVBC", placeholder="UVBC da Linha 571")
 
         with col2:
             st.subheader("Linha 572")
-            washer2 = st.text_input("Lavadora", placeholder="Lavadora da Linha 572")
-            sos2 = st.text_input("SOS", placeholder="SOS da Linha 572")
-            uvbc2 = st.text_input("UVBC", placeholder="UVBC da Linha 572")
+            selected_shift = st.selectbox(label="Turno: ", options=["Nenhum", "A", "B", "C"])
+            washer2 = st.text_area("Lavadora", placeholder="Lavadora da Linha 572")
+            sos2 = st.text_area("SOS", placeholder="SOS da Linha 572")
+            uvbc2 = st.text_area("UVBC", placeholder="UVBC da Linha 572")
                 
         submit_button = st.form_submit_button(label="Enviar")            
 
         if submit_button:
-            submit_args = {
-                "washer1": washer1,
-                "sos1": sos1,
-                "uvbc1": uvbc1,
-                "washer2": washer2,
-                "sos2": sos2,
-                "uvbc2": uvbc2
-            }
-            _submit_callback(submit_args=submit_args)
+            if selected_shift == "Nenhum":
+                st.error("Turno não selecionado!")
+            else:
+                submit_args = {
+                    "endedshift": selected_shift,
+                    "washer1": washer1,
+                    "sos1": sos1,
+                    "uvbc1": uvbc1,
+                    "washer2": washer2,
+                    "sos2": sos2,
+                    "uvbc2": uvbc2
+                }
+                _submit_callback(submit_args=submit_args)
 
 
 
@@ -149,12 +154,13 @@ def main() -> None:
     #db_check()
 
     st.title("Troca de Turno - Laboratório")
-    menu = ['Inserir', 'Buscar']
+
+    # Side manu
+    menu = ['Home', 'Inserir', 'Buscar']
     choice = st.sidebar.selectbox("Menu", menu)
 
     if choice == "Inserir":
         _inserir_dados()
-
     else:
         st.subheader("Funcionalidade em desenvolvimento!")
        
