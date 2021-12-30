@@ -24,8 +24,6 @@ st.set_page_config(layout="wide")
 key_dict = json.loads(st.secrets["textkey"])
 db = firestore.Client.from_service_account_info(key_dict)
 
-st.write(datetime.strptime("29/12/2021 07:10:23", "%d/%m/%Y %H:%M:%S"))
-
 
 
 ### FUNCTIONS
@@ -130,9 +128,14 @@ def _home() -> None:
     # Buscar último dado inserido
     fechamentos_ref = db.collection(u"fechamentos")
     doc_ref = fechamentos_ref.order_by(
-        u"date", direction=firestore.Query.DESCENDING).limit(1)
+       u"date", direction=firestore.Query.DESCENDING).limit(1)
     query = doc_ref.get()[0].to_dict()
 
+
+    # INIT TESTE
+    # doc_ref = db.collection(u"fechamentos").document("29122021A")
+    # query = doc_ref.get().to_dict()
+    # FIM TESTE
 
     # Mostra o resultado teste
     st.subheader("Última Modificação:")
@@ -188,11 +191,18 @@ def _home() -> None:
         st.write("\n\n")
 
     st.write("#### Pendências:")
-    # st.write(f" > {s}\n\n") if not query["pends"] == "" else "Nenhuma" for s in re.split(r"\s{2,}", query["pends"])
-    st.write("\n\n")
+    if ("pends" in query.keys()) & (not query["pends"] == ""):
+        for s in re.split(r"\s{2,}", query["pends"]):
+            st.write(f" > {s}")  
+    else:
+        st.write("Nenhuma pendência")
 
     st.write("#### Observações Gerais:")
-    # st.write(f" > {s}\n\n") if not query["obs"] == "" else "Nenhuma" for s in re.split(r"\s{2,}", query["obs"]
+    if ("obs" in query.keys()) & (not query["obs"] == ""):
+        for s in re.split(r"\s{2,}", query["obs"]):
+            st.write(f" > {s}")  
+    else:
+        st.write("Nenhuma observação")
 
 
 
