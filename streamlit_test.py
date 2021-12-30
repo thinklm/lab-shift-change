@@ -64,7 +64,8 @@ def _submit_callback() -> None:
 
         
         # Sobe os dados do turno para o banco de dados
-        _upload_shift_data(submit_args, teste=True)
+        #_upload_shift_data(submit_args, teste=True)
+        _upload_shift_data(submit_args)
 
         # Mensagem de sucesso
         st.success("Dados enviados com sucesso!")
