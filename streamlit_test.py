@@ -83,6 +83,13 @@ def _submit_callback() -> None:
 
 
 
+
+def _search_callback() -> None:
+    pass
+
+
+
+
 def _inserir_dados() -> None:
 
     # Header
@@ -96,7 +103,7 @@ def _inserir_dados() -> None:
     
     
     # FORMS
-    with st.form(key='form1', clear_on_submit=False):
+    with st.form(key='form_in', clear_on_submit=False):
         col1, col2 = st.columns([3,3])
 
         with col1:
@@ -210,8 +217,26 @@ def _home() -> None:
 
 
 def _buscar_dados() -> None:
-    st.subheader("Funcionalidade em desenvolvimento!")
-    pass
+    st.write("## :hammer: Funcionalidade em desenvolvimento!")
+
+    with st.form(key="form_search", clear_on_submit=False):
+        col_date, col_shift, col_button = st.columns(3)
+
+        with col_date:
+            st.date_input("Data", key="date_search")
+        with col_shift:
+            st.selectbox(label="Turno", options=["Selecione", "A", "B", "C"], key="sft_search")
+        with col_button:
+            st.write("")
+            st.write("")
+            st.form_submit_button(label="Buscar", on_click=_search_callback)
+    
+    # Buscar último dado inserido
+    fechamentos_ref = db.collection(u"fechamentos")
+    doc_ref = fechamentos_ref.order_by(
+       u"date", direction=firestore.Query.DESCENDING).limit(1)
+    query = doc_ref.get()[0].to_dict()
+
 
 
 
@@ -219,7 +244,7 @@ def _buscar_dados() -> None:
 def main() -> None:
     st.title("Troca de Turno - Laboratório")
 
-    # Side manu
+    # Side menu
     menu = ['Home', 'Inserir', 'Buscar']
     choice = st.sidebar.selectbox("Menu", menu)
 
