@@ -10,7 +10,7 @@ Copyright (c) 2021 AmBev Latas Minas / THINK
 ### IMPORTS
 
 from google.cloud import firestore
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import json
 import re
@@ -44,20 +44,24 @@ def _query(home: bool=False) -> dict:
         return doc_ref.get()[0].to_dict()
 
     else:
+        date_query = datetime.strptime(f"{st.session_state.date_search}", "%Y-%m-%d")
         # doc_id = st.session_state.date_search.strftime("%d%m%Y") + st.session_state.sft_search
         # doc_ref = db.collection(u"fechamentos").document(doc_id)
 
         # return doc_ref.get().to_dict()
         fechamentos_ref = db.collection(u"fechamentos")
         doc_ref = fechamentos_ref.where(
-            u"date", u"==", f"{st.session_state.date_search}"
+            u"date", u">", date_query
+        ).where(
+            u"date", u"<", date_query + timedelta(days=1)
         ).where(
             u"endedshift", u"==", f"{st.session_state.sft_search}"
-        ).order_by(
-            u"date", direction=firestore.Query.DESCENDING
-        ).limit(1)
-        
-        return doc_ref.stream() ## .stream() -> for loop
+        )
+        # .order_by(
+        #     u"date", direction=firestore.Query.DESCENDING
+        # ).limit(1)
+
+        return doc_ref.stream()
 
 
 
@@ -212,8 +216,8 @@ def _submit_callback() -> None:
 def _search_callback() -> None:
     query = _query()
 
-    st.write(query)
-    _display_shift_info(query)
+    for doc in query:
+        _display_shift_info(doc.to_dict())
 
 
     # st.button(label="Editar", key="search_edit_button")
