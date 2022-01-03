@@ -21,15 +21,50 @@ st.set_page_config(layout="wide")
 
 ### DB CONN
 
-key_dict = json.loads(st.secrets["textkey"])
-db = firestore.Client.from_service_account_info(key_dict)
+try:
+    key_dict = json.loads(st.secrets["textkey"])
+    db = firestore.Client.from_service_account_info(key_dict)
+except Exception as e:
+    st.write(f"Erro na conexão com o Banco de Dados:\n{e}")
+    st.write("Se persistir o erro, contate o desenvolvedor!")
+
 
 
 
 ### FUNCTIONS
 
+
+def _query(home: bool=False) -> dict:
+    if home:
+        fechamentos_ref = db.collection(u"fechamentos")
+        doc_ref = fechamentos_ref.order_by(
+            u"date", direction=firestore.Query.DESCENDING
+        ).limit(1)
+        
+        return doc_ref.get()[0].to_dict()
+
+    else:
+        # doc_id = st.session_state.date_search.strftime("%d%m%Y") + st.session_state.sft_search
+        # doc_ref = db.collection(u"fechamentos").document(doc_id)
+
+        # return doc_ref.get().to_dict()
+        fechamentos_ref = db.collection(u"fechamentos")
+        doc_ref = fechamentos_ref.where(
+            u"date", u"==", f"{st.session_state.date_search}"
+        ).where(
+            u"endedshift", u"==", f"{st.session_state.sft_search}"
+        ).order_by(
+            u"date", direction=firestore.Query.DESCENDING
+        ).limit(1)
+        
+        return doc_ref.stream() ## .stream() -> for loop
+
+
+
+
+
 def _upload_shift_data(submit_args: dict, teste: bool=False) -> None:
-    now = datetime.now()
+    now = datetime.now().astimezone(pytz.timezone("America/SaoPaulo"))
 
     if teste:
         new_id  = "29122021A"
@@ -40,6 +75,96 @@ def _upload_shift_data(submit_args: dict, teste: bool=False) -> None:
 
     doc_ref = db.collection(u"fechamentos").document(new_id)
     doc_ref.set(submit_args)
+
+
+
+
+
+def _display_shift_info(query: dict) -> None:
+    if query == None:
+        st.write("## :warning: Busca não encontrada!")
+        return ""
+    else:
+        # dia, hora e turno da última modificação
+        col_data, col_hora, col_turno, col_spare = st.columns([1, 1, 1, 3])
+        with col_data:
+            st.write(f"Dia: {query['date'].astimezone(pytz.timezone('America/Sao_Paulo')).strftime('%d/%m/%Y')}")
+        with col_hora:
+            st.write(f"Hora: {query['date'].astimezone(pytz.timezone('America/Sao_Paulo')).strftime('%H:%M:%S')}")
+        with col_turno:
+            st.write(f"Turno: {query['endedshift']}")
+        with col_spare:
+            st.empty()
+
+
+        
+
+        # Detalhes da úlitma modificação
+        col3, col_spare2, col4 = st.columns([4,1,4])
+
+        with col3:
+            st.write("### Linha 571")
+
+            st.write("#### Lavadora")
+            for s in re.split(r"\s{2,}", query['washer1']):
+                st.write(f"> {s}")
+            st.write("\n\n")
+
+            st.write("#### SOS")
+            for s in re.split(r"\s{2,}", query['sos1']):
+                st.write(f"> {s}")
+            st.write("\n\n")
+
+            st.write("#### UVBC:")
+            for s in re.split(r"\s{2,}", query['uvbc1']):
+                st.write(f"> {s}")
+            st.write("\n\n")
+
+        with col_spare2:
+            st.empty()
+
+        with col4:
+            st.write("### Linha 572")
+
+            st.write("#### Lavadora")
+            for s in re.split(r"\s{2,}", query['washer2']):
+                st.write(f"> {s}")
+            st.write("\n\n")
+
+            st.write("#### SOS")
+            for s in re.split(r"\s{2,}", query['sos2']):
+                st.write(f"> {s}")
+            st.write("\n\n")
+
+            st.write("#### UVBC:")
+            for s in re.split(r"\s{2,}", query['uvbc2']):
+                st.write(f"> {s}")
+            st.write("\n\n")
+
+        st.write("\n\n")
+        st.write("### Geral:")
+
+        st.write("#### Pendências:")
+        if ("pends" in query.keys()) & (not query["pends"] == ""):
+            # for s in re.split(r"\s{2,}", query["pends"]):
+            #     st.write(f" > {s}")  
+            st.write(f" > {query['pends']}")
+                 
+        else:
+            st.write("Nenhuma pendência")
+
+            
+
+        st.write("#### Observações Gerais:")
+        if ("obs" in query.keys()) & (not query["obs"] == ""):
+            # for s in re.split(r"\n{2,}", query["obs"]):
+            #     st.write(f" > {s}")  
+            st.write(f" > {query['obs']}")
+        else:
+            st.write("Nenhuma observação")
+
+        
+
 
 
 
@@ -85,7 +210,13 @@ def _submit_callback() -> None:
 
 
 def _search_callback() -> None:
-    pass
+    query = _query()
+
+    st.write(query)
+    _display_shift_info(query)
+
+
+    # st.button(label="Editar", key="search_edit_button")
 
 
 
@@ -104,7 +235,7 @@ def _inserir_dados() -> None:
     
     # FORMS
     with st.form(key='form_in', clear_on_submit=False):
-        col1, col2 = st.columns([3,3])
+        col1, col2 = st.columns(2)
 
         with col1:
             st.subheader("Linha 571")
@@ -122,7 +253,10 @@ def _inserir_dados() -> None:
         st.text_area("Pendências", placeholder="Pendências", key="pends")
         st.text_area("Observações", placeholder="Observações", key="obs")
 
-        st.form_submit_button(label="Enviar", on_click=_submit_callback)
+        inserir_button = st.form_submit_button(label="Enviar")
+
+        if inserir_button:
+            _submit_callback()
 
 
 
@@ -131,87 +265,15 @@ def _inserir_dados() -> None:
 
 
 def _home() -> None:
-    st.write("## :hammer: Funcionalidade em desenvolvimento! ")
+    st.write(":warning: Funcionalidade em desenvolvimento! :hammer:")
     
     # Buscar último dado inserido
-    fechamentos_ref = db.collection(u"fechamentos")
-    doc_ref = fechamentos_ref.order_by(
-       u"date", direction=firestore.Query.DESCENDING).limit(1)
-    query = doc_ref.get()[0].to_dict()
+    query = _query(home=True)
 
-
-    # INIT TESTE
-    # doc_ref = db.collection(u"fechamentos").document("29122021A")
-    # query = doc_ref.get().to_dict()
-    # FIM TESTE
-
-    # Mostra o resultado teste
-    st.subheader("Última Modificação:")
-
-    # dia, hora e turno da última modificação
-    col_data, col_hora, col_turno = st.columns(3)
-    with col_data:
-        st.write(f"Dia: {query['date'].strftime('%d/%m/%Y')}")
-    with col_hora:
-        st.write(f"Hora: {query['date'].astimezone(pytz.timezone('America/Sao_Paulo')).strftime('%H:%M:%S')}")
-    with col_turno:
-        st.write(f"Turno: {query['endedshift']}")
-
+    # Mostra o resultado da busca
+    st.subheader("Última Modificação:\n\n")
+    _display_shift_info(query=query)
     
-
-    # Detalhes da úlitma modificação
-    col3, col4 = st.columns(2)
-
-    with col3:
-        st.write("### Linha 571")
-
-        st.write("#### Lavadora")
-        for s in re.split(r"\s{2,}", query['washer1']):
-            st.write(f"> {s}")
-        st.write("\n\n")
-
-        st.write("#### SOS")
-        for s in re.split(r"\s{2,}", query['sos1']):
-            st.write(f"> {s}")
-        st.write("\n\n")
-
-        st.write("#### UVBC:")
-        for s in re.split(r"\s{2,}", query['uvbc1']):
-            st.write(f"> {s}")
-        st.write("\n\n")
-
-    with col4:
-        st.write("### Linha 572")
-
-        st.write("#### Lavadora")
-        for s in re.split(r"\s{2,}", query['washer2']):
-            st.write(f"> {s}")
-        st.write("\n\n")
-
-        st.write("#### SOS")
-        for s in re.split(r"\s{2,}", query['sos2']):
-            st.write(f"> {s}")
-        st.write("\n\n")
-
-        st.write("#### UVBC:")
-        for s in re.split(r"\s{2,}", query['uvbc2']):
-            st.write(f"> {s}")
-        st.write("\n\n")
-
-    st.write("#### Pendências:")
-    if ("pends" in query.keys()) & (not query["pends"] == ""):
-        for s in re.split(r"\s{2,}", query["pends"]):
-            st.write(f" > {s}")  
-    else:
-        st.write("Nenhuma pendência")
-
-    st.write("#### Observações Gerais:")
-    if ("obs" in query.keys()) & (not query["obs"] == ""):
-        for s in re.split(r"\s{2,}", query["obs"]):
-            st.write(f" > {s}")  
-    else:
-        st.write("Nenhuma observação")
-
 
 
 
@@ -219,30 +281,22 @@ def _home() -> None:
 def _buscar_dados() -> None:
     st.write("## :hammer: Funcionalidade em desenvolvimento!")
 
-    with st.form(key="form_search", clear_on_submit=False):
-        col_date, col_shift, col_button = st.columns(3)
+    st.sidebar.write("")
+    st.sidebar.write("\n\nFaça sua busca:\n\n")
+    st.sidebar.date_input("Data", key="date_search")
+    st.sidebar.selectbox(label="Turno", options=["Selecione", "A", "B", "C"], key="sft_search")
+    st.sidebar.button(label="Buscar", key="search_button")
 
-        with col_date:
-            st.date_input("Data", key="date_search")
-        with col_shift:
-            st.selectbox(label="Turno", options=["Selecione", "A", "B", "C"], key="sft_search")
-        with col_button:
-            st.write("")
-            st.write("")
-            st.form_submit_button(label="Buscar", on_click=_search_callback)
-    
-    # Buscar último dado inserido
-    fechamentos_ref = db.collection(u"fechamentos")
-    doc_ref = fechamentos_ref.order_by(
-       u"date", direction=firestore.Query.DESCENDING).limit(1)
-    query = doc_ref.get()[0].to_dict()
+    # Search button click
+    if st.session_state.search_button:
+        st.write(_search_callback())
 
 
 
 
 
 def main() -> None:
-    st.title("Troca de Turno - Laboratório")
+    st.title("Diário de Turno - Laboratório")
 
     # Side menu
     menu = ['Home', 'Inserir', 'Buscar']
