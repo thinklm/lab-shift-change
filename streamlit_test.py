@@ -71,14 +71,14 @@ def _merge_docs(query: Query.stream) -> dict:
     merged = {
         "date": datetime.combine(st.session_state.date_search, time(hour=0, minute=0, second=1)),
         "endedshift": "",
-        "washer1": [],
-        "sos1": [],
-        "uvbc1": [],
-        "washer2": [],
-        "sos2": [],
-        "uvbc2": [],
-        "pends": [],
-        "obs": [],
+        "washer1": "",
+        "sos1": "",
+        "uvbc1": "",
+        "washer2": "",
+        "sos2": "",
+        "uvbc2": "",
+        "pends": "",
+        "obs": "",
     }
 
     # for doc in query:
@@ -95,7 +95,7 @@ def _merge_docs(query: Query.stream) -> dict:
             if (key == "date") | (key == "endedshift"):
                 merged[key] = doc.to_dict()[key]     
             else:
-                merged[key].append(doc.to_dict()[key])
+                merged[key] = merged[key] + "\n\n" + doc.to_dict()[key]
 
     print(merged)
 
