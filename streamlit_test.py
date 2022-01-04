@@ -10,7 +10,8 @@ Copyright (c) 2021 AmBev Latas Minas / THINK
 ### IMPORTS
 
 from google.cloud import firestore
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
+from google.cloud.firestore_v1.query import Query
 import pytz
 import json
 import re
@@ -56,12 +57,50 @@ def _query(home: bool=False) -> dict:
             u"date", u"<", date_query + timedelta(days=1)
         ).where(
             u"endedshift", u"==", f"{st.session_state.sft_search}"
+        ).order_by(
+            u"date", direction=firestore.Query.ASCENDING
         )
-        # .order_by(
-        #     u"date", direction=firestore.Query.DESCENDING
-        # ).limit(1)
 
         return doc_ref.stream()
+
+
+
+
+
+def _merge_docs(query: Query.stream) -> dict:
+    merged = {
+        "date": datetime.combine(st.session_state.date_search, time(hour=0, minute=0, second=1)),
+        "endedshift": "",
+        "washer1": [],
+        "sos1": [],
+        "uvbc1": [],
+        "washer2": [],
+        "sos2": [],
+        "uvbc2": [],
+        "pends": [],
+        "obs": [],
+    }
+
+    # for doc in query:
+    #     for key in merged.keys():
+    #         if (key == "date") & (datetime.time(doc.to_dict()[key]) > datetime.time(merged[key])):
+    #             merged[key] = doc.to_dict()[key]  
+    #         elif key == "endedshift":
+    #             merged[key] = doc.to_dict()[key]
+    #         else:
+    #             merged[key].append(doc.to_dict()[key])
+
+    for doc in query:
+        for key in merged.keys():
+            if (key == "date") | (key == "endedshift"):
+                merged[key] = doc.to_dict()[key]     
+            else:
+                merged[key].append(doc.to_dict()[key])
+
+    print(merged)
+
+    return merged
+
 
 
 
@@ -215,9 +254,13 @@ def _submit_callback() -> None:
 
 def _search_callback() -> None:
     query = _query()
-
-    for doc in query:
-        _display_shift_info(doc.to_dict())
+    merged_query = _merge_docs(query)
+    st.write(merged_query)
+    # _display_shift_info(merged_query)
+    # for doc in query:
+    #     _display_shift_info(doc.to_dict())
+    _display_shift_info(merged_query)
+    
 
 
     # st.button(label="Editar", key="search_edit_button")
