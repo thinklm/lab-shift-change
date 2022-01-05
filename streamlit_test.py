@@ -15,6 +15,7 @@ from google.cloud.firestore_v1.query import Query
 import pytz
 import json
 import re
+import random
 import streamlit as st
 st.set_page_config(layout="wide")
 
@@ -28,7 +29,6 @@ try:
 except Exception as e:
     st.write(f"Erro na conexão com o Banco de Dados:\n{e}")
     st.write("Se persistir o erro, contate o desenvolvedor!")
-
 
 
 
@@ -69,7 +69,8 @@ def _query(home: bool=False) -> dict:
 
 def _merge_docs(query: Query.stream) -> dict:
     merged = {
-        "date": datetime.combine(st.session_state.date_search, time(hour=0, minute=0, second=1)).astimezone(pytz.timezone("America/Sao_Paulo")),
+        #"date": datetime.combine(st.session_state.date_search, time(hour=0, minute=0, second=1)).astimezone(pytz.timezone("America/Sao_Paulo")),
+        "date": "",
         "endedshift": "",
         "washer1": "",
         "sos1": "",
@@ -85,6 +86,8 @@ def _merge_docs(query: Query.stream) -> dict:
         for key in merged.keys():
 
             if key == "date":
+                if doc.to_dict()[key] == "":
+                    return None
                 merged[key] = doc.to_dict()[key].astimezone(pytz.timezone("America/Sao_Paulo"))
             elif key == "endedshift":
                 merged[key] = doc.to_dict()[key]   
@@ -99,13 +102,13 @@ def _merge_docs(query: Query.stream) -> dict:
 
 
 def _upload_shift_data(submit_args: dict, teste: bool=False) -> None:
-    now = datetime.now().astimezone(pytz.timezone("America/SaoPaulo"))
+    now = datetime.now().astimezone(pytz.timezone("America/Sao_Paulo"))
 
     if teste:
-        new_id  = "29122021A"
+        new_id  = "29122021A" + str(random.randrange(1, 10**3)).zfill(4) 
         submit_args["date"] = datetime.strptime("29/12/2021 07:10:23", "%d/%m/%Y %H:%M:%S")
     else:
-        new_id  = now.strftime("%d%m%Y") + st.session_state.sft     
+        new_id  = now.strftime("%d%m%Y") + st.session_state.sft + str(random.randrange(1, 10**3)).zfill(4)  
         submit_args["date"] = now
 
     doc_ref = db.collection(u"fechamentos").document(new_id)
@@ -116,11 +119,12 @@ def _upload_shift_data(submit_args: dict, teste: bool=False) -> None:
 
 
 def _display_shift_info(query: dict) -> None:
-    if query == None:
+    if (query == None) | (query["date"] == ""):
         st.write("## :warning: Busca não encontrada!")
         return None
     else:
         # dia, hora e turno da última modificação
+        st.subheader("Última Modificação:\n\n")
         col_data, col_hora, col_turno, col_spare = st.columns([1, 1, 1, 3])
         with col_data:
             st.write(f"Dia: {query['date'].astimezone(pytz.timezone('America/Sao_Paulo')).strftime('%d/%m/%Y')}")
@@ -138,7 +142,7 @@ def _display_shift_info(query: dict) -> None:
         col3, col_spare2, col4 = st.columns([4,1,4])
 
         with col3:
-            st.write("### Linha 571")
+            st.write("## Linha 571")
 
             st.write("#### Lavadora")
             for s in re.split(r"\s{2,}", query['washer1']):
@@ -155,11 +159,12 @@ def _display_shift_info(query: dict) -> None:
                 st.write(f"> {s}")
             st.write("\n\n")
 
+        # Coluna de marcação de espaço (layout-only)
         with col_spare2:
             st.empty()
 
         with col4:
-            st.write("### Linha 572")
+            st.write("## Linha 572")
 
             st.write("#### Lavadora")
             for s in re.split(r"\s{2,}", query['washer2']):
@@ -176,12 +181,14 @@ def _display_shift_info(query: dict) -> None:
                 st.write(f"> {s}")
             st.write("\n\n")
 
+
+
         st.write("\n\n")
-        st.write("### Geral:")
+        st.write("## Geral:")
 
         st.write("#### Pendências:")
         if ("pends" in query.keys()) & (not query["pends"] == ""):
-            for s in re.split(r"\s{2,}", query["pends"]):
+            for s in re.split(r"\n{2,}", query["pends"]):
                 st.write(f" > {s}")  
             # st.write(f" > {query['pends']}")
                  
@@ -224,8 +231,8 @@ def _submit_callback() -> None:
 
         
         # Sobe os dados do turno para o banco de dados
-        #_upload_shift_data(submit_args, teste=True)
-        _upload_shift_data(submit_args)
+        _upload_shift_data(submit_args, teste=True)
+        #_upload_shift_data(submit_args)
 
         # Mensagem de sucesso
         st.success("Dados enviados com sucesso!")
@@ -285,10 +292,7 @@ def _inserir_dados() -> None:
         st.text_area("Pendências", placeholder="Pendências", key="pends")
         st.text_area("Observações", placeholder="Observações", key="obs")
 
-        inserir_button = st.form_submit_button(label="Enviar")
-
-        if inserir_button:
-            _submit_callback()
+        st.form_submit_button(label="Enviar", on_click=_submit_callback)
 
 
 
@@ -303,7 +307,6 @@ def _home() -> None:
     query = _query(home=True)
 
     # Mostra o resultado da busca
-    st.subheader("Última Modificação:\n\n")
     _display_shift_info(query=query)
     
 
