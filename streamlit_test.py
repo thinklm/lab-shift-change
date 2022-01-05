@@ -141,6 +141,7 @@ def _display_shift_info(query: dict) -> None:
         # Detalhes da úlitma modificação
         col3, col_spare2, col4 = st.columns([4,1,4])
 
+        # Coluna 571
         with col3:
             st.write("## Linha 571")
 
@@ -163,6 +164,7 @@ def _display_shift_info(query: dict) -> None:
         with col_spare2:
             st.empty()
 
+        # Coluna 572
         with col4:
             st.write("## Linha 572")
 
