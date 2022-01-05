@@ -1,2 +1,3 @@
 secrets.toml
 firestore_key.json
+fix_db.py
