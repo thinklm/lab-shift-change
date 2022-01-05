@@ -69,7 +69,7 @@ def _query(home: bool=False) -> dict:
 
 def _merge_docs(query: Query.stream) -> dict:
     merged = {
-        "date": datetime.combine(st.session_state.date_search, time(hour=0, minute=0, second=1)),
+        "date": datetime.combine(st.session_state.date_search, time(hour=0, minute=0, second=1)).astimezone(pytz.timezone("America/Sao_Paulo")),
         "endedshift": "",
         "washer1": "",
         "sos1": "",
@@ -81,23 +81,15 @@ def _merge_docs(query: Query.stream) -> dict:
         "obs": "",
     }
 
-    # for doc in query:
-    #     for key in merged.keys():
-    #         if (key == "date") & (datetime.time(doc.to_dict()[key]) > datetime.time(merged[key])):
-    #             merged[key] = doc.to_dict()[key]  
-    #         elif key == "endedshift":
-    #             merged[key] = doc.to_dict()[key]
-    #         else:
-    #             merged[key].append(doc.to_dict()[key])
-
     for doc in query:
         for key in merged.keys():
-            if (key == "date") | (key == "endedshift"):
-                merged[key] = doc.to_dict()[key]     
+
+            if key == "date":
+                merged[key] = doc.to_dict()[key].astimezone(pytz.timezone("America/Sao_Paulo"))
+            elif key == "endedshift":
+                merged[key] = doc.to_dict()[key]   
             else:
                 merged[key] = merged[key] + "\n\n" + doc.to_dict()[key]
-
-    print(merged)
 
     return merged
 
@@ -126,7 +118,7 @@ def _upload_shift_data(submit_args: dict, teste: bool=False) -> None:
 def _display_shift_info(query: dict) -> None:
     if query == None:
         st.write("## :warning: Busca não encontrada!")
-        return ""
+        return None
     else:
         # dia, hora e turno da última modificação
         col_data, col_hora, col_turno, col_spare = st.columns([1, 1, 1, 3])
@@ -189,9 +181,9 @@ def _display_shift_info(query: dict) -> None:
 
         st.write("#### Pendências:")
         if ("pends" in query.keys()) & (not query["pends"] == ""):
-            # for s in re.split(r"\s{2,}", query["pends"]):
-            #     st.write(f" > {s}")  
-            st.write(f" > {query['pends']}")
+            for s in re.split(r"\s{2,}", query["pends"]):
+                st.write(f" > {s}")  
+            # st.write(f" > {query['pends']}")
                  
         else:
             st.write("Nenhuma pendência")
@@ -200,9 +192,9 @@ def _display_shift_info(query: dict) -> None:
 
         st.write("#### Observações Gerais:")
         if ("obs" in query.keys()) & (not query["obs"] == ""):
-            # for s in re.split(r"\n{2,}", query["obs"]):
-            #     st.write(f" > {s}")  
-            st.write(f" > {query['obs']}")
+            for s in re.split(r"\n{2,}", query["obs"]):
+                st.write(f" > {s}")  
+            # st.write(f" > {query['obs']}")
         else:
             st.write("Nenhuma observação")
 
@@ -255,15 +247,8 @@ def _submit_callback() -> None:
 def _search_callback() -> None:
     query = _query()
     merged_query = _merge_docs(query)
-    st.write(merged_query)
-    # _display_shift_info(merged_query)
-    # for doc in query:
-    #     _display_shift_info(doc.to_dict())
     _display_shift_info(merged_query)
     
-
-
-    # st.button(label="Editar", key="search_edit_button")
 
 
 
@@ -328,6 +313,7 @@ def _home() -> None:
 def _buscar_dados() -> None:
     st.write("## :hammer: Funcionalidade em desenvolvimento!")
 
+    # Menu lateral para busca
     st.sidebar.write("")
     st.sidebar.write("\n\nFaça sua busca:\n\n")
     st.sidebar.date_input("Data", key="date_search")
@@ -358,6 +344,6 @@ def main() -> None:
        
 
 
-
+### EXECUTAR
 if __name__ == '__main__':
     main()
