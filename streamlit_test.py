@@ -32,10 +32,10 @@ except Exception as e:
 
 
 
+
 ### FUNCTIONS
 
-
-def _query(home: bool=False) -> dict:
+def _query(home: bool=False, search=False) -> dict:
     if home:
         fechamentos_ref = db.collection(u"fechamentos")
         doc_ref = fechamentos_ref.order_by(
@@ -327,7 +327,7 @@ def _buscar_dados() -> None:
 
     # Search button click
     if st.session_state.search_button:
-        st.write(_search_callback())
+        _search_callback()
 
 
 
@@ -346,6 +346,7 @@ def main() -> None:
         _inserir_dados()
     elif choice == "Buscar":
         _buscar_dados()
+
        
 
 
