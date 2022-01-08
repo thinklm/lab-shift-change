@@ -35,39 +35,60 @@ except Exception as e:
 
 ### FUNCTIONS
 
-def _query(home: bool=False, search=False) -> dict:
+def _query(home: bool=False) -> Query.stream:
+    """Busca no Banco de Dados com filtros.
+
+    Args:
+        home (bool, optional): Opção para identificar a busca específica para a Home. Defaults to False.
+
+    Returns:
+        Query.stream: Generator com objetos correspondentes aos filtros de busca aplicados.
+    """
+
     if home:
         fechamentos_ref = db.collection(u"fechamentos")
-        doc_ref = fechamentos_ref.order_by(
+        docs = fechamentos_ref.order_by(
             u"date", direction=firestore.Query.DESCENDING
         ).limit(1)
-        
-        return doc_ref.get()[0].to_dict()
+
+        date_query = datetime.strptime(
+            f"{docs.get()[0].to_dict()['date'].astimezone(pytz.timezone('America/Sao_Paulo')).date()}", "%Y-%m-%d"
+        )
+        shift = docs.get()[0].to_dict()["endedshift"]
 
     else:
         date_query = datetime.strptime(f"{st.session_state.date_search}", "%Y-%m-%d")
-        # doc_id = st.session_state.date_search.strftime("%d%m%Y") + st.session_state.sft_search
-        # doc_ref = db.collection(u"fechamentos").document(doc_id)
+        shift = st.session_state.sft_search
 
-        # return doc_ref.get().to_dict()
-        fechamentos_ref = db.collection(u"fechamentos")
-        doc_ref = fechamentos_ref.where(
-            u"date", u">", date_query
-        ).where(
-            u"date", u"<", date_query + timedelta(days=1)
-        ).where(
-            u"endedshift", u"==", f"{st.session_state.sft_search}"
-        ).order_by(
-            u"date", direction=firestore.Query.ASCENDING
-        )
 
-        return doc_ref.stream()
+    fechamentos_ref = db.collection(u"fechamentos")
+    doc_ref = fechamentos_ref.where(
+        u"date", u">", date_query
+    ).where(
+        u"date", u"<", date_query + timedelta(days=1)
+    ).where(
+        u"endedshift", u"==", f"{shift}"
+    ).order_by(
+        u"date", direction=firestore.Query.ASCENDING
+    )
+
+    return doc_ref.stream()
 
 
 
 
 
 def _merge_docs(query: Query.stream) -> dict:
+    """Concatena os documentos com a mesma especificação em um só.
+
+    Args:
+        query (Query.stream): Stream de queries resultantes da busca filtrada no banco de dados
+
+    Returns:
+        dict: Objeto com as informações concatenadas. 
+        Retorna None caso não haja registros para a busca aplicada.
+    """
+
     merged = {
         #"date": datetime.combine(st.session_state.date_search, time(hour=0, minute=0, second=1)).astimezone(pytz.timezone("America/Sao_Paulo")),
         "date": "",
@@ -84,13 +105,15 @@ def _merge_docs(query: Query.stream) -> dict:
 
     for doc in query:
         for key in merged.keys():
-
+            
             if key == "date":
                 if doc.to_dict()[key] == "":
                     return None
                 merged[key] = doc.to_dict()[key].astimezone(pytz.timezone("America/Sao_Paulo"))
-            elif key == "endedshift":
+            
+            elif (key == "endedshift") | (merged[key] == ""):
                 merged[key] = doc.to_dict()[key]   
+            
             else:
                 merged[key] = merged[key] + "\n\n" + doc.to_dict()[key]
 
@@ -102,6 +125,13 @@ def _merge_docs(query: Query.stream) -> dict:
 
 
 def _upload_shift_data(submit_args: dict, teste: bool=False) -> None:
+    """Faz o upload de dados do turno selecionado para o banco de dados.
+
+    Args:
+        submit_args (dict): Objeto com os valores a serem salvos
+        teste (bool, optional): Modo de teste configurável para o desenvolvedor. Defaults to False.
+    """
+
     now = datetime.now().astimezone(pytz.timezone("America/Sao_Paulo"))
 
     if teste:
@@ -119,9 +149,16 @@ def _upload_shift_data(submit_args: dict, teste: bool=False) -> None:
 
 
 def _display_shift_info(query: dict) -> None:
+    """Apresenta as informações de um turno na aplicação.
+
+    Args:
+        query (dict): Objeto com os valores a serem apresentados na aplicação
+    """
+
+    # Verifica a ausência de registro
     if (query == None) | (query["date"] == ""):
         st.write("## :warning: Busca não encontrada!")
-        return None
+
     else:
         # dia, hora e turno da última modificação
         st.subheader("Última Modificação:\n\n")
@@ -136,7 +173,6 @@ def _display_shift_info(query: dict) -> None:
             st.empty()
 
 
-        
 
         # Detalhes da úlitma modificação
         col3, col_spare2, col4 = st.columns([4,1,4])
@@ -184,26 +220,22 @@ def _display_shift_info(query: dict) -> None:
             st.write("\n\n")
 
 
-
         st.write("\n\n")
         st.write("## Geral:")
 
         st.write("#### Pendências:")
         if ("pends" in query.keys()) & (not query["pends"] == ""):
             for s in re.split(r"\n{2,}", query["pends"]):
-                st.write(f" > {s}")  
-            # st.write(f" > {query['pends']}")
-                 
+                st.write(f" > {s}")
         else:
             st.write("Nenhuma pendência")
 
-            
+        st.write("\n\n")
 
         st.write("#### Observações Gerais:")
         if ("obs" in query.keys()) & (not query["obs"] == ""):
             for s in re.split(r"\n{2,}", query["obs"]):
                 st.write(f" > {s}")  
-            # st.write(f" > {query['obs']}")
         else:
             st.write("Nenhuma observação")
 
@@ -215,6 +247,8 @@ def _display_shift_info(query: dict) -> None:
 
 
 def _submit_callback() -> None:
+    """Callback Function para o Submit do Forms para Inserir Dados.
+    """
     
     if st.session_state.sft == "Selecione":
         st.error("Turno não selecionado!")
@@ -253,9 +287,19 @@ def _submit_callback() -> None:
 
 
 
-def _search_callback() -> None:
-    query = _query()
+def _search_callback(home: bool=False) -> None:
+    """Callback Function para Buscar dados e apresentá-los na aplicação.
+    Serve tanto para a Home quanto para a tela de Buscar.
+
+    Args:
+        home (bool, optional): Opção para identificar a busca específica para a Home. Defaults to False.
+    """
+
+    # Busca todos os dados da data e turno escolhidos
+    query = _query(home)
+    # junta todas as informações
     merged_query = _merge_docs(query)
+    # mostra as informações na tela
     _display_shift_info(merged_query)
     
 
@@ -263,6 +307,8 @@ def _search_callback() -> None:
 
 
 def _inserir_dados() -> None:
+    """Estrutura de Formulário para inserir novos dados de turno para o Banco de Dados.
+    """
 
     # Header
     st.header("Inserir Dados")
@@ -300,24 +346,10 @@ def _inserir_dados() -> None:
 
 
 
-
-
-def _home() -> None:
-    st.write(":warning: Funcionalidade em desenvolvimento! :hammer:")
-    
-    # Buscar último dado inserido
-    query = _query(home=True)
-
-    # Mostra o resultado da busca
-    _display_shift_info(query=query)
-    
-
-
-
-
 def _buscar_dados() -> None:
-    st.write("## :hammer: Funcionalidade em desenvolvimento!")
-
+    """Estrutura no menu lateral para definir o filtro de busca por data e turno.
+    """
+    
     # Menu lateral para busca
     st.sidebar.write("")
     st.sidebar.write("\n\nFaça sua busca:\n\n")
@@ -334,6 +366,9 @@ def _buscar_dados() -> None:
 
 
 def main() -> None:
+    """Função principal para guia de execuções na aplicação.
+    """
+
     st.title("Diário de Turno - Laboratório")
 
     # Side menu
@@ -341,7 +376,7 @@ def main() -> None:
     choice = st.sidebar.selectbox("Menu", menu)
 
     if choice == "Home":
-        _home()
+        _search_callback(home=True)
     elif choice == "Inserir":
         _inserir_dados()
     elif choice == "Buscar":
