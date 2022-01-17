@@ -13,6 +13,7 @@ from google.cloud import firestore
 from datetime import datetime, time, timedelta
 from google.cloud.firestore_v1.query import Query
 import pytz
+import pandas as pd
 import json
 import re
 import random
@@ -36,7 +37,7 @@ except Exception as e:
 
 ### FUNCTIONS
 
-def _query(home: bool=False) -> Query.stream:
+def _query(mode: str="search") -> Query.stream:
     """Busca no Banco de Dados com filtros.
 
     Args:
@@ -46,32 +47,68 @@ def _query(home: bool=False) -> Query.stream:
         Query.stream: Generator com objetos correspondentes aos filtros de busca aplicados.
     """
 
-    if home:
+    if mode=="home":
         fechamentos_ref = db.collection(u"fechamentos")
         docs = fechamentos_ref.order_by(
             u"date", direction=firestore.Query.DESCENDING
         ).limit(1)
 
-        date_query = datetime.strptime(
+        # start_date = datetime.strptime(
+        #     f"{docs.get()[0].to_dict()['date'].astimezone(pytz.timezone('America/Sao_Paulo')).date()}", "%Y-%m-%d"
+        # )
+        start_date = datetime.strptime(
             f"{docs.get()[0].to_dict()['date'].astimezone(pytz.timezone('America/Sao_Paulo')).date()}", "%Y-%m-%d"
         )
+        end_date = start_date + timedelta(days=1)
         shift = docs.get()[0].to_dict()["endedshift"]
 
     else:
-        date_query = datetime.strptime(f"{st.session_state.date_search}", "%Y-%m-%d")
+        start_date = datetime.strptime(f"{st.session_state.date_search}", "%Y-%m-%d")
+        end_date = start_date + timedelta(days=1)
         shift = st.session_state.sft_search
 
-
+    st.write(start_date)
+    st.write(end_date)
     fechamentos_ref = db.collection(u"fechamentos")
     doc_ref = fechamentos_ref.where(
-        u"date", u">", date_query
+        u"date", u">", start_date.astimezone(pytz.timezone("America/Sao_Paulo"))
     ).where(
-        u"date", u"<", date_query + timedelta(days=1)
+        u"date", u"<", end_date.astimezone(pytz.timezone("America/Sao_Paulo"))
     ).where(
         u"endedshift", u"==", f"{shift}"
     ).order_by(
         u"date", direction=firestore.Query.ASCENDING
     )
+
+    return doc_ref.stream()
+
+
+
+
+
+def _analysis_query(time_window: str="this_month") -> Query.stream:
+    if time_window == "this_month":
+        start_date = datetime.today().replace(day=1)
+        end_date = (start_date + timedelta(days=32)).replace(day=1)
+    elif time_window == "last_month":
+        pass
+    elif time_window == "this_year":
+        pass
+
+    doc_ref = db.collection(u"fechamentos").where(
+        u"date", u">", start_date
+    ).where(
+        u"date", u"<", end_date
+    ).order_by(
+        u"date", direction=firestore.Query.ASCENDING
+    )
+
+    registry_count = list()
+    for doc in doc_ref.stram():
+        if doc.to_dict()["date"] == "":
+            registry_count.append([0])
+        #elif
+
 
     return doc_ref.stream()
 
@@ -288,7 +325,7 @@ def _submit_callback() -> None:
 
 
 
-def _search_callback(home: bool=False) -> None:
+def _search_callback(mode: str="search") -> None:
     """Callback Function para Buscar dados e apresentá-los na aplicação.
     Serve tanto para a Home quanto para a tela de Buscar.
 
@@ -297,7 +334,7 @@ def _search_callback(home: bool=False) -> None:
     """
 
     # Busca todos os dados da data e turno escolhidos
-    query = _query(home)
+    query = _query(mode)
     # junta todas as informações
     merged_query = _merge_docs(query)
     # mostra as informações na tela
@@ -366,6 +403,64 @@ def _buscar_dados() -> None:
 
 
 
+def _analysis() -> None:
+    def _get_virtual_data(year):
+        date_list = pd.date_range(
+            start=f"{year}-01-01", end=f"{year}-02-01", freq="D"
+        )
+
+        for day in date_list:
+            pass
+
+
+        return [[d.strftime("%Y-%m-%d"), random.randint(1, 20)] for d in date_list]
+
+    option = {
+        "tooltip": {"position": "top"},
+        "visualMap": {
+            "min": 0,
+            "max": 20,
+            "calculable": True,
+            "orient": "horizontal",
+            "left": "center",
+            "top": "top",
+        },
+        "calendar": [
+            {
+                "orient": 'vertical',
+                "yearLabel": {
+                    "margin": 40
+                },
+                "dayLabel": {
+                    "firstDay": 1,
+                    "nameMap": ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+                },
+                "monthLabel": {
+                    "nameMap": 'en',
+                    "margin": 20
+                },
+                "cellSize": 40,
+                "top": 350,
+                "left": 460,
+                "range": '2022-01'
+            },
+        ],
+        "series": [
+            {
+                "type": "heatmap",
+                "coordinateSystem": "calendar",
+                "calendarIndex": 0,
+                "data": _get_virtual_data(2022),
+            }
+        ],
+    }
+    st_echarts(option, height="640px", key="echarts")
+    
+
+
+
+
+
 def main() -> None:
     """Função principal para guia de execuções na aplicação.
     """
@@ -373,15 +468,18 @@ def main() -> None:
     st.title("Diário de Turno - Laboratório")
 
     # Side menu
-    menu = ['Home', 'Inserir', 'Buscar']
+    menu = ['Home', 'Inserir', 'Buscar', 'Análise']
     choice = st.sidebar.selectbox("Menu", menu)
 
     if choice == "Home":
-        _search_callback(home=True)
+        _search_callback(mode="home")
     elif choice == "Inserir":
         _inserir_dados()
     elif choice == "Buscar":
         _buscar_dados()
+    elif choice == "Análise":
+        _analysis()
+    
 
        
 
