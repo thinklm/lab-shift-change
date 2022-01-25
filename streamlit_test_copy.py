@@ -53,9 +53,6 @@ def _query(mode: str="search") -> Query.stream:
             u"date", direction=firestore.Query.DESCENDING
         ).limit(1)
 
-        # start_date = datetime.strptime(
-        #     f"{docs.get()[0].to_dict()['date'].astimezone(pytz.timezone('America/Sao_Paulo')).date()}", "%Y-%m-%d"
-        # )
         start_date = datetime.strptime(
             f"{docs.get()[0].to_dict()['date'].astimezone(pytz.timezone('America/Sao_Paulo')).date()}", "%Y-%m-%d"
         )
@@ -67,8 +64,6 @@ def _query(mode: str="search") -> Query.stream:
         end_date = start_date + timedelta(days=1)
         shift = st.session_state.sft_search
 
-    st.write(start_date)
-    st.write(end_date)
     fechamentos_ref = db.collection(u"fechamentos")
     doc_ref = fechamentos_ref.where(
         u"date", u">", start_date.astimezone(pytz.timezone("America/Sao_Paulo"))
@@ -404,56 +399,120 @@ def _buscar_dados() -> None:
 
 
 def _analysis() -> None:
-    def _get_virtual_data(year):
+    month_options = {
+        "01": "Janeiro", 
+        "02": "Fevereiro", 
+        "03": "Março",
+        "04": "Abril", 
+        "05": "Maio",
+        "06": "Junho",
+        "07": "Julho", 
+        "08": "Agosto",
+        "09": "Setembro",
+        "10": "Outubro",
+        "11": "Novembro",
+        "12": "Dezembro"
+    }
+
+    st.write("### Preenchimento do Diário de Turno")
+    col_1, col_2, col_spare = st.columns([1, 1, 5])
+    with col_1:
+        st.selectbox("Ano", options=['2022'], key="an_year")
+    with col_2:
+        st.selectbox("Mês", options=month_options.values(), key="an_month", index=datetime.today().month-1)
+    with col_spare:
+        st.empty()
+    # Numero do mes escolhido
+    month_number = [month for month, name in month_options.items() if name == st.session_state.an_month][0]
+    
+
+
+    def _get_date_list(year: int=2022, month: int=1):
+        month_next = month +1 if (month > 0 and month < 12) else 1
+        year_next = year if (month > 0 and month < 12) else year + 1
         date_list = pd.date_range(
-            start=f"{year}-01-01", end=f"{year}-02-01", freq="D"
+            start=f"{year}-{month}-01", end=f"{year_next}-{month_next}-01", freq="D"
         )
+        return date_list
 
-        for day in date_list:
-            pass
+    def _get_virtual_data(month: int, year: int=2022):
+        date_list = _get_date_list(year, month)
+        return [[d.strftime("%Y-%m-%d"), random.randint(0, 3)] for d in date_list]
 
-
-        return [[d.strftime("%Y-%m-%d"), random.randint(1, 20)] for d in date_list]
+    
+    def label_formatter():
+        date_list = _get_date_list(int(st.session_state.an_year), int(month_number))
+        return [[d.strftime("%Y-%m-%d"), f'{d.strftime("%d")}\n'] for d in date_list]
+    
+    virtual_data = _get_virtual_data(int(month_number), int(st.session_state.an_year))
 
     option = {
-        "tooltip": {"position": "top"},
+        "tooltip": {
+            "position": "top",
+            #"formatter": f"Turno A:\n\nTurno B:{virtual_data}"     #-- NOT OK
+        },
         "visualMap": {
+            "show": False,
             "min": 0,
-            "max": 20,
+            "max": 3,
             "calculable": True,
             "orient": "horizontal",
-            "left": "center",
-            "top": "top",
+            "left": 40,
+            "bottom": 170,
+            "inRange": {
+                # "color": ['#e63946', '#2ec4b6', '#2ec4b6', '#2ec4b6'],
+                "color": ['#ef476f', '#06d6a0', '#06d6a0', '#06d6a0'],
+                "opacity": [.9]
+            }
         },
         "calendar": [
             {
                 "orient": 'vertical',
                 "yearLabel": {
-                    "margin": 40
+                    "margin": 45
                 },
                 "dayLabel": {
                     "firstDay": 1,
-                    "nameMap": ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+                    "nameMap": ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'],
+                    "color": "#aaa"
                 },
                 "monthLabel": {
                     "nameMap": 'en',
-                    "margin": 20
+                    "margin": 20,
+                    "color": "#aaa",
+                    "fontSize": 13
                 },
-                "cellSize": 40,
-                "top": 350,
-                "left": 460,
-                "range": '2022-01'
+                "cellSize": 50,
+                "top": 100,
+                "left": 50,
+                "range": f'{st.session_state.an_year}-{month_number}'
             },
         ],
         "series": [
-            {
+            {       
+                "type": 'scatter',
+                "coordinateSystem": 'calendar',
+                "symbolSize": 1,
+                "top": "top",
+                "label": {
+                    "show": True,
+                    "fontSize": 14,
+                    "fontWeight": 500,
+                    "color": '#fff'
+                },
+                #"data": [str(i[0]) for i in virtual_data]      # Data inteira
+                "data": label_formatter()
+            },
+            {   
                 "type": "heatmap",
                 "coordinateSystem": "calendar",
+                "symbolsize": 1,
                 "calendarIndex": 0,
-                "data": _get_virtual_data(2022),
+                "data": virtual_data,
             }
         ],
     }
+
     st_echarts(option, height="640px", key="echarts")
     
 
