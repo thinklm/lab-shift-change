@@ -9,6 +9,7 @@ Copyright (c) 2021 AmBev Latas Minas / THINK
 
 ### IMPORTS
 
+from sqlite3 import Timestamp
 from google.cloud import firestore
 from datetime import datetime, time, timedelta
 from google.cloud.firestore_v1.query import Query
@@ -81,31 +82,37 @@ def _query(mode: str="search") -> Query.stream:
 
 
 
-def _analysis_query(time_window: str="this_month") -> Query.stream:
-    if time_window == "this_month":
-        start_date = datetime.today().replace(day=1)
-        end_date = (start_date + timedelta(days=32)).replace(day=1)
-    elif time_window == "last_month":
-        pass
-    elif time_window == "this_year":
-        pass
+def _analysis_query(date_list: list) -> dict:
+
+    start_date = date_list[0]
+    end_date = date_list[-1]
 
     doc_ref = db.collection(u"fechamentos").where(
-        u"date", u">", start_date
+        u"date", u">", start_date.tz_localize(pytz.timezone("America/Sao_Paulo"))
     ).where(
-        u"date", u"<", end_date
+        u"date", u"<", end_date.tz_localize(pytz.timezone("America/Sao_Paulo"))
     ).order_by(
         u"date", direction=firestore.Query.ASCENDING
     )
 
-    registry_count = list()
-    for doc in doc_ref.stram():
-        if doc.to_dict()["date"] == "":
-            registry_count.append([0])
-        #elif
+    registry_count = dict()
+    for doc in doc_ref.stream():
+        #st.write(doc.to_dict()["endedshift"])
+        if (doc.to_dict()["date"].astimezone(pytz.timezone("America/SAo_paulo")) == "") | \
+         (doc.to_dict()["date"] >= datetime.today().astimezone(pytz.timezone("America/SAo_paulo"))):
+            registry_count[doc.to_dict()["date"].strftime("%Y-%m-%d")] = -1
+        elif doc.to_dict()["date"].astimezone(pytz.timezone("America/SAo_paulo")).strftime("%Y-%m-%d") in registry_count:
+            #st.write(doc.to_dict()["date"].strftime("%Y-%m-%d"))
+            if doc.to_dict()["endedshift"] in registry_count[doc.to_dict()["date"].astimezone(pytz.timezone("America/SAo_paulo")).strftime("%Y-%m-%d")]:
+                pass
+            else: 
+                registry_count[doc.to_dict()["date"].astimezone(pytz.timezone("America/SAo_paulo")).strftime("%Y-%m-%d")].append(doc.to_dict()["endedshift"])
+
+        else: 
+            registry_count[doc.to_dict()["date"].astimezone(pytz.timezone("America/SAo_paulo")).strftime("%Y-%m-%d")] = list(doc.to_dict()["endedshift"])
 
 
-    return doc_ref.stream()
+    return registry_count
 
 
 
@@ -414,6 +421,7 @@ def _analysis() -> None:
         "12": "Dezembro"
     }
 
+    # Interação Com Usuário
     st.write("### Preenchimento do Diário de Turno")
     col_1, col_2, col_spare = st.columns([1, 1, 5])
     with col_1:
@@ -427,33 +435,66 @@ def _analysis() -> None:
     
 
 
-    def _get_date_list(year: int=2022, month: int=1):
+    def _get_date_list(year: int=2022, month: int=1) -> list:
         month_next = month +1 if (month > 0 and month < 12) else 1
         year_next = year if (month > 0 and month < 12) else year + 1
         date_list = pd.date_range(
             start=f"{year}-{month}-01", end=f"{year_next}-{month_next}-01", freq="D"
         )
+        #st.write(date_list)
         return date_list
-
-    def _get_virtual_data(month: int, year: int=2022):
-        date_list = _get_date_list(year, month)
-        return [[d.strftime("%Y-%m-%d"), random.randint(0, 3)] for d in date_list]
-
     
-    def label_formatter():
-        date_list = _get_date_list(int(st.session_state.an_year), int(month_number))
+    
+
+    # def _get_virtual_data(month: int, year: int=2022):    #-- Random Data OK
+    #     date_list = _get_date_list(year, month)
+    #     #shift_count = _analysis_query()
+    #     return [[d.strftime("%Y-%m-%d"), random.randint(0, 3)] for d in date_list]
+
+    # ''' FUNCIONA, MAS CUSTOSO DEMAIS '''
+    # def _get_virtual_data(month: int, year: int=2022) -> list:  
+    #     date_list = _get_date_list(year, month)
+    #     #shift_count = _analysis_query()
+    #     return [[d.strftime("%Y-%m-%d"), _analysis_query(d)] for d in date_list]
+
+    def _get_virtual_data(query: dict, month: int, year: int=2022) -> list:  
+        #date_list = _get_date_list(year, month)
+        
+
+        return [[d.strftime("%Y-%m-%d"), len(query[d.strftime("%Y-%m-%d")]) if d.strftime("%Y-%m-%d") in query else -1] for d in date_list]
+
+    def _label_formatter(date_list: list) -> list:
+        #date_list = _get_date_list(int(st.session_state.an_year), int(month_number))
         return [[d.strftime("%Y-%m-%d"), f'{d.strftime("%d")}\n'] for d in date_list]
-    
-    virtual_data = _get_virtual_data(int(month_number), int(st.session_state.an_year))
+        
 
+    def _tooltip_formatter(query: dict) -> str:
+        #date_list = _get_date_list(int(st.session_state.an_year), int(month_number))
+        #return [[d.strftime("%Y-%m-%d"), f'{d.strftime("%d")}\n'] for d in date_list]
+        turnos = ["A", "B", "C"]
+        params = dict()
+        params["values"] = query
+
+
+        return f"Registros:{params.values[1]}"
+        
+
+
+    date_list = _get_date_list(int(st.session_state.an_year), int(month_number))
+    query = _analysis_query(date_list)
+    virtual_data = _get_virtual_data(query, int(month_number), int(st.session_state.an_year))
+
+    ''' Configurar Tooltip '''
     option = {
         "tooltip": {
             "position": "top",
-            #"formatter": f"Turno A:\n\nTurno B:{virtual_data}"     #-- NOT OK
+            "formatter": f"Turno A:\nTurno B:\nTurno C:",     #-- NOT OK]
+            # "formatter": _tooltip_formatter(query),
+            "renderMode": "richText"
         },
         "visualMap": {
             "show": False,
-            "min": 0,
+            "min": -1,
             "max": 3,
             "calculable": True,
             "orient": "horizontal",
@@ -461,7 +502,7 @@ def _analysis() -> None:
             "bottom": 170,
             "inRange": {
                 # "color": ['#e63946', '#2ec4b6', '#2ec4b6', '#2ec4b6'],
-                "color": ['#ef476f', '#06d6a0', '#06d6a0', '#06d6a0'],
+                "color": ['#dee2e6','#ef476f', '#ef476f', '#ef476f', '#06d6a0'],
                 "opacity": [.9]
             }
         },
@@ -500,8 +541,7 @@ def _analysis() -> None:
                     "fontWeight": 500,
                     "color": '#fff'
                 },
-                #"data": [str(i[0]) for i in virtual_data]      # Data inteira
-                "data": label_formatter()
+                "data": _label_formatter(date_list)
             },
             {   
                 "type": "heatmap",
